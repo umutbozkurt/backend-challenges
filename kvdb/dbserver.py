@@ -2,6 +2,8 @@ import json
 import socket
 import functools
 import time
+import threading
+from collections import defaultdict
 
 
 class Store(object):
@@ -41,6 +43,14 @@ class Store(object):
         ttl, persistent = self.ttl
         return ttl <= 0 and not persistent
 
+    @property
+    def expiration(self):
+        return self.__ttl + self.seed
+
+    @property
+    def persistent(self):
+        return self.__ttl == 0
+
 
 class ServerError(Exception):
     message = 'Error :/'
@@ -54,6 +64,34 @@ class NotIncrementableError(ServerError):
     message = 'Provided key`s value is not incrementable'
 
 
+class ExpiryService(threading.Timer):
+
+    def __init__(self, interval, args=None, kwargs=None):
+        super(ExpiryService, self).__init__(
+            interval,
+            self.cleanup,
+            args=args,
+            kwargs=kwargs
+        )
+
+        self.keys = defaultdict(list)
+
+    def subscribe(self, store):
+        self.keys[store.expiration].append(store.key)
+
+    def unsubscribe(self, store):
+        keys = self.keys[store.expiration]
+        keys.remove(store.key)
+
+        self.keys[store.expiration] = keys
+
+    def cleanup(self):
+        timestamp = int(time.time())
+
+        for key in self.keys[timestamp]:
+            server.delete(key)
+
+
 class Server(object):
     STATUS_OK = 'OK'
     STATUS_ERROR = 'ERROR'
@@ -63,6 +101,9 @@ class Server(object):
         self.port = port
         self.socket = None
         self.data = {}
+
+        self.expiry_service = ExpiryService(1)
+        self.expiry_service.run()
 
     def run(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -162,6 +203,9 @@ class Server(object):
     def _save_store(self, store):
         self.data.update(store.serialize())
 
+        if not store.persistent:
+            self.expiry_service.subscribe(store)
+
     def get(self, key):
         store = self._get_store(key)
 
@@ -178,6 +222,13 @@ class Server(object):
         self._save_store(store)
 
     def delete(self, key):
+        store = self._get_store(key)
+
+        if not store.persistent:
+            import pdb
+            pdb.set_trace()
+            self.expiry_service.unsubscribe(store)
+
         if key in self.data:
             del self.data[key]
 
@@ -208,6 +259,8 @@ class Server(object):
         return store.ttl[0]
 
 
+server = Server()
+
+
 if __name__ == '__main__':
-    server = Server()
     server.run()

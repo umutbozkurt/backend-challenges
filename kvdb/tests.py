@@ -1,4 +1,5 @@
 import unittest
+import time
 from unittest.mock import patch
 
 from dbserver import Server
@@ -136,6 +137,18 @@ class ServerTests(unittest.TestCase):
 
         self.assertIsNone(self.server.get(key))
 
+    def test_expiry_service(self):
+        key = 'KEY'
+        ttl = 1
+
+        self.server.set(key, 'val', ttl=ttl)
+        self.server.expire(key, ttl)
+
+        time.sleep(2)
+
+        value = self.server.get(key)
+
+        self.assertIsNone(value)
 
 if __name__ == '__main__':
     unittest.main()
