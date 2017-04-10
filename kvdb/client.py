@@ -55,9 +55,6 @@ class Client(object):
     def disconnect(self):
         self.socket.close()
 
-    def set(self, key, val):
-        self.execute('')
-
 
 if __name__ == '__main__':
     client = Client()

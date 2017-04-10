@@ -225,8 +225,6 @@ class Server(object):
         store = self._get_store(key)
 
         if not store.persistent:
-            import pdb
-            pdb.set_trace()
             self.expiry_service.unsubscribe(store)
 
         if key in self.data:
