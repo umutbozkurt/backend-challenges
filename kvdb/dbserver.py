@@ -29,6 +29,10 @@ class CommandNotFoundError(ServerError):
     message = 'Unknown command'
 
 
+class NotIncrementableError(ServerError):
+    message = 'Provided key`s value is not incrementable'
+
+
 class Server(object):
     STATUS_OK = 'OK'
     STATUS_ERROR = 'ERROR'
@@ -111,7 +115,8 @@ class Server(object):
             'GET': self.get,
             'SET': self.set,
             'PING': self.ping,
-            'DELETE': self.delete
+            'DELETE': self.delete,
+            'INCR': self.increment
         }
 
         try:
@@ -137,11 +142,30 @@ class Server(object):
 
     def set(self, key, value, ttl=0):
         store = Store(key, value, ttl=ttl)
+        self.save_store(store)
+
+    def save_store(self, store):
         self.data.update(store.serialize())
 
     def delete(self, key):
         if key in self.data:
             del self.data[key]
+
+    def increment(self, key):
+        value = self.data.get(key)['value']
+
+        if value:
+            try:
+                value += 1
+            except TypeError:
+                raise NotIncrementableError()
+            else:
+                store = Store(key, value)
+        else:
+            store = Store(key, 1)
+
+        self.save_store(store)
+        return store.value
 
     def expire(self, key, ttl=None):
         store = self.data.get(key)
@@ -150,7 +174,7 @@ class Server(object):
             return store['ttl']
         else:
             store.ttl = ttl
-            return self.data.update(store.serialize())
+            return self.save_store(store)
 
 
 if __name__ == '__main__':

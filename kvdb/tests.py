@@ -68,6 +68,24 @@ class ServerTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             _ = self.server.data[key]
 
+    def test_increment(self):
+        key = 'KEY'
+        val = 1000
+
+        self.server.set(key, val)
+
+        payload = {
+            'command': 'INCR',
+            'args': {
+                'key': key
+            }
+        }
+
+        response = self.server.handle_message(payload)
+
+        self.assertEqual(response['status'], Server.STATUS_OK)
+        self.assertEqual(response['result'], val + 1)
+
 
 if __name__ == '__main__':
     unittest.main()
