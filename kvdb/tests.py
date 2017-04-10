@@ -20,6 +20,23 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(response['status'], Server.STATUS_OK)
         self.assertEqual(response['result'], 'PONG')
 
+    def test_process_input(self):
+        commands = (
+            'GET',
+            'SET',
+            'PING',
+            'DELETE',
+            'INCR',
+            'DECR',
+            'TTL',
+            'EXPIRE',
+        )
+
+        for command in commands:
+            cmd = self.server.process_input(dict(command=command, args=dict()))
+            self.assertTrue(callable(cmd))
+
+
     def test_set(self):
         key = 'KEY'
         val = 'VAL'

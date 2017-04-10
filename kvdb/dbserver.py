@@ -139,7 +139,8 @@ class Server(object):
             'DELETE': self.delete,
             'INCR': self.increment,
             'DECR': self.decrement,
-            'TTL': self.ttl
+            'TTL': self.ttl,
+            'EXPIRE': self.expire
         }
 
         try:
