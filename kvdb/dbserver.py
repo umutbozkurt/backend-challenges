@@ -159,6 +159,9 @@ class Server(object):
     def _get_store(self, key):
         return Store.deserialize(key, self.data.get(key))
 
+    def _save_store(self, store):
+        self.data.update(store.serialize())
+
     def get(self, key):
         store = self._get_store(key)
 
@@ -172,10 +175,7 @@ class Server(object):
 
     def set(self, key, value, ttl=0):
         store = Store(key, value, ttl=ttl)
-        self.save_store(store)
-
-    def save_store(self, store):
-        self.data.update(store.serialize())
+        self._save_store(store)
 
     def delete(self, key):
         if key in self.data:
@@ -192,7 +192,7 @@ class Server(object):
         else:
             store = Store(key, increment_by)
 
-        self.save_store(store)
+        self._save_store(store)
         return store.value
 
     def decrement(self, key):
@@ -201,7 +201,7 @@ class Server(object):
     def expire(self, key, ttl):
         store = self._get_store(key)
         store.__ttl = ttl
-        return self.save_store(store)
+        return self._save_store(store)
 
     def ttl(self, key):
         store = self._get_store(key)

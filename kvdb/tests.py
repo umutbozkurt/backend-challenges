@@ -1,5 +1,4 @@
 import unittest
-import time
 from unittest.mock import patch
 
 from dbserver import Server
@@ -36,6 +35,25 @@ class ServerTests(unittest.TestCase):
             cmd = self.server.process_input(dict(command=command, args=dict()))
             self.assertTrue(callable(cmd))
 
+    def test_process_args(self):
+        key = 'key'
+        value = 'val'
+
+        payload = {
+            'command': 'SET',
+            'args': {
+                'key': key,
+                'value': value
+            }
+        }
+
+        response = self.server.handle_message(payload)
+
+        self.assertEqual(response['status'], Server.STATUS_OK)
+        self.assertIsNone(response['result'])
+
+        out = self.server.get(key)
+        self.assertEqual(out, value)
 
     def test_set(self):
         key = 'KEY'
