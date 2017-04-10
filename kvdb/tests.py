@@ -86,6 +86,50 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(response['status'], Server.STATUS_OK)
         self.assertEqual(response['result'], val + 1)
 
+    def test_increment_null(self):
+        payload = {
+            'command': 'INCR',
+            'args': {
+                'key': 'new key'
+            }
+        }
+
+        response = self.server.handle_message(payload)
+
+        self.assertEqual(response['status'], Server.STATUS_OK)
+        self.assertEqual(response['result'], 1)
+
+    def test_decrement(self):
+        key = 'KEY'
+        val = 1000
+
+        self.server.set(key, val)
+
+        payload = {
+            'command': 'DECR',
+            'args': {
+                'key': key
+            }
+        }
+
+        response = self.server.handle_message(payload)
+
+        self.assertEqual(response['status'], Server.STATUS_OK)
+        self.assertEqual(response['result'], val - 1)
+
+    def test_decrement_null(self):
+        payload = {
+            'command': 'DECR',
+            'args': {
+                'key': 'new key'
+            }
+        }
+
+        response = self.server.handle_message(payload)
+
+        self.assertEqual(response['status'], Server.STATUS_OK)
+        self.assertEqual(response['result'], -1)
+
 
 if __name__ == '__main__':
     unittest.main()

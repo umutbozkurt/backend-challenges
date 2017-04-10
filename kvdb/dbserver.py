@@ -116,7 +116,8 @@ class Server(object):
             'SET': self.set,
             'PING': self.ping,
             'DELETE': self.delete,
-            'INCR': self.increment
+            'INCR': self.increment,
+            'DECR': self.decrement
         }
 
         try:
@@ -132,8 +133,11 @@ class Server(object):
     def ping(self):
         return 'PONG'
 
+    def _get_store(self, key):
+        return Store.deserialize(key, self.data.get(key))
+
     def get(self, key):
-        store = Store.deserialize(key, self.data.get(key))
+        store = self._get_store(key)
 
         if store:
             return store.value
@@ -151,21 +155,22 @@ class Server(object):
         if key in self.data:
             del self.data[key]
 
-    def increment(self, key):
-        value = self.data.get(key)['value']
+    def increment(self, key, increment_by=1):
+        store = self._get_store(key)
 
-        if value:
+        if store.value:
             try:
-                value += 1
+                store.value += increment_by
             except TypeError:
                 raise NotIncrementableError()
-            else:
-                store = Store(key, value)
         else:
-            store = Store(key, 1)
+            store = Store(key, increment_by)
 
         self.save_store(store)
         return store.value
+
+    def decrement(self, key):
+        return self.increment(key, increment_by=-1)
 
     def expire(self, key, ttl=None):
         store = self.data.get(key)
