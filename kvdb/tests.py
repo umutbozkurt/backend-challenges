@@ -1,4 +1,6 @@
 import unittest
+import time
+from unittest.mock import patch
 
 from dbserver import Server
 
@@ -22,48 +24,24 @@ class ServerTests(unittest.TestCase):
         key = 'KEY'
         val = 'VAL'
 
-        payload = {
-            'command': 'SET',
-            'args': {
-                'key': key,
-                'value': val
-            }
-        }
+        self.server.set(key, val)
 
-        response = self.server.handle_message(payload)
-
-        self.assertEqual(response['status'], Server.STATUS_OK)
-        self.assertEqual(response['result'], None)
-        self.assertEqual(self.server.data[key]['value'], val)
+        store = self.server._get_store(key)
+        self.assertEqual(store.value, val)
 
     def test_get(self):
-        payload = {
-            'command': 'GET',
-            'args': {
-                'key': 'ASD'
-            }
-        }
+        key = 'KEY'
+        value = 'VAL'
+        self.server.set(key, value)
 
-        response = self.server.handle_message(payload)
-
-        self.assertEqual(response['status'], Server.STATUS_OK)
-        self.assertEqual(response['result'], None)
+        out = self.server.get(key)
+        self.assertEqual(out, value)
 
     def test_delete(self):
         key = 'KEY'
         self.server.set(key, 'VAL')
-
-        payload = {
-            'command': 'DELETE',
-            'args': {
-                'key': key
-            }
-        }
-
-        response = self.server.handle_message(payload)
-
-        self.assertEqual(response['status'], Server.STATUS_OK)
-        self.assertEqual(response['result'], None)
+        self.server.delete(key)
+        self.assertEqual(self.server.get(key), None)
 
         with self.assertRaises(KeyError):
             _ = self.server.data[key]
@@ -73,62 +51,41 @@ class ServerTests(unittest.TestCase):
         val = 1000
 
         self.server.set(key, val)
+        out = self.server.increment(key)
 
-        payload = {
-            'command': 'INCR',
-            'args': {
-                'key': key
-            }
-        }
-
-        response = self.server.handle_message(payload)
-
-        self.assertEqual(response['status'], Server.STATUS_OK)
-        self.assertEqual(response['result'], val + 1)
+        self.assertEqual(out, val + 1)
 
     def test_increment_null(self):
-        payload = {
-            'command': 'INCR',
-            'args': {
-                'key': 'new key'
-            }
-        }
-
-        response = self.server.handle_message(payload)
-
-        self.assertEqual(response['status'], Server.STATUS_OK)
-        self.assertEqual(response['result'], 1)
+        out = self.server.increment('key')
+        self.assertEqual(out, 1)
 
     def test_decrement(self):
         key = 'KEY'
         val = 1000
 
         self.server.set(key, val)
+        out = self.server.decrement(key)
 
-        payload = {
-            'command': 'DECR',
-            'args': {
-                'key': key
-            }
-        }
-
-        response = self.server.handle_message(payload)
-
-        self.assertEqual(response['status'], Server.STATUS_OK)
-        self.assertEqual(response['result'], val - 1)
+        self.assertEqual(out, val - 1)
 
     def test_decrement_null(self):
-        payload = {
-            'command': 'DECR',
-            'args': {
-                'key': 'new key'
-            }
-        }
+        out = self.server.decrement('key')
 
-        response = self.server.handle_message(payload)
+        self.assertEqual(out, -1)
 
-        self.assertEqual(response['status'], Server.STATUS_OK)
-        self.assertEqual(response['result'], -1)
+    @patch('dbserver.time')
+    def test_ttl(self, time):
+        key = 'KEY'
+        ttl = 1000
+
+        time.time.return_value = 100000
+
+        self.server.set(key, 'val', ttl=ttl)
+        self.server.expire(key, ttl)
+
+        time.time.return_value = 100001  # 1 second passed
+
+        self.assertLess(self.server.ttl(key), ttl)
 
 
 if __name__ == '__main__':

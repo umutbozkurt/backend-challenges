@@ -1,22 +1,30 @@
 import json
 import socket
 import functools
+import time
 
 
 class Store(object):
 
-    def __init__(self, key, value, ttl=0):
+    def __init__(self, key, value, ttl=0, seed=None):
         self.key = key
         self.value = value
         self.ttl = ttl
+        self.seed = seed or int(time.time())
 
     def serialize(self):
-        return {self.key: {'value': self.value, 'ttl': self.ttl}}
+        return {
+            self.key: {
+                'value': self.value,
+                'ttl': self.ttl,
+                'seed': self.seed
+            }
+        }
 
     @classmethod
     def deserialize(cls, key, data):
         if data:
-            return cls(key, data['value'], data.get('ttl'))
+            return cls(key, data['value'], data.get('ttl'), seed=data.get('seed'))
         else:
             return cls(key, None)
 
@@ -117,7 +125,8 @@ class Server(object):
             'PING': self.ping,
             'DELETE': self.delete,
             'INCR': self.increment,
-            'DECR': self.decrement
+            'DECR': self.decrement,
+            'TTL': self.ttl
         }
 
         try:
@@ -172,14 +181,19 @@ class Server(object):
     def decrement(self, key):
         return self.increment(key, increment_by=-1)
 
-    def expire(self, key, ttl=None):
-        store = self.data.get(key)
+    def expire(self, key, ttl):
+        store = self._get_store(key)
+        store.ttl = ttl
+        return self.save_store(store)
 
-        if not ttl:
-            return store['ttl']
-        else:
-            store.ttl = ttl
-            return self.save_store(store)
+    def ttl(self, key):
+        store = self._get_store(key)
+        diff = int(time.time()) - store.seed
+
+        try:
+            return max(store.ttl - diff, 0)
+        except TypeError:
+            return 0
 
 
 if __name__ == '__main__':
