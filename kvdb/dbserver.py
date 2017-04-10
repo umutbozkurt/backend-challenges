@@ -9,14 +9,14 @@ class Store(object):
     def __init__(self, key, value, ttl=0, seed=None):
         self.key = key
         self.value = value
-        self.ttl = ttl
+        self.__ttl = ttl
         self.seed = seed or int(time.time())
 
     def serialize(self):
         return {
             self.key: {
                 'value': self.value,
-                'ttl': self.ttl,
+                'ttl': self.__ttl,
                 'seed': self.seed
             }
         }
@@ -27,6 +27,19 @@ class Store(object):
             return cls(key, data['value'], data.get('ttl'), seed=data.get('seed'))
         else:
             return cls(key, None)
+
+    @property
+    def ttl(self):
+        """
+        :returns ttl, persistent
+        """
+        diff = int(time.time()) - self.seed
+        return max(self.__ttl - diff, 0), self.__ttl == 0
+
+    @property
+    def expired(self):
+        ttl, persistent = self.ttl
+        return ttl <= 0 and not persistent
 
 
 class ServerError(Exception):
@@ -149,7 +162,10 @@ class Server(object):
         store = self._get_store(key)
 
         if store:
-            return store.value
+            if store.expired:
+                return self.delete(key)
+            else:
+                return store.value
         else:
             return None
 
@@ -183,17 +199,12 @@ class Server(object):
 
     def expire(self, key, ttl):
         store = self._get_store(key)
-        store.ttl = ttl
+        store.__ttl = ttl
         return self.save_store(store)
 
     def ttl(self, key):
         store = self._get_store(key)
-        diff = int(time.time()) - store.seed
-
-        try:
-            return max(store.ttl - diff, 0)
-        except TypeError:
-            return 0
+        return store.ttl[0]
 
 
 if __name__ == '__main__':

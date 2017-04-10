@@ -87,6 +87,20 @@ class ServerTests(unittest.TestCase):
 
         self.assertLess(self.server.ttl(key), ttl)
 
+    @patch('dbserver.time')
+    def test_expiration(self, time):
+        key = 'KEY'
+        ttl = 1
+
+        time.time.return_value = 100000
+
+        self.server.set(key, 'val', ttl=ttl)
+        self.server.expire(key, ttl)
+
+        time.time.return_value = 100002  # 2 seconds passed
+
+        self.assertIsNone(self.server.get(key))
+
 
 if __name__ == '__main__':
     unittest.main()
